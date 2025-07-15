@@ -6,9 +6,9 @@
   ansible.builtin.dnf:
    name: nodejs
    state: present
-- name: create roboshop system user
+- name: create expense system user
   ansible.builtin.user:
-    name: roboshop
+    name: expense
     shell: /sbin/nologin
     system: true
     home: /app
@@ -43,6 +43,11 @@
     name: "backend"
     state: restarted 
     enabled: yes
+- name: Install PyMySQL for Ansible MySQL modules
+  ansible.builtin.pip:
+    name: PyMySQL
+    executable: pip3
+
 - name: install mysql
   ansible.builtin.dnf:
    name: mysql
