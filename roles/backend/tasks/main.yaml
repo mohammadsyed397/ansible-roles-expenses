@@ -1,68 +1,86 @@
 - name: Disable nodejs module
-  ansible.builtin.command: "dnf module disable nodejs -y"
-- name: Enable nodejs.20 module
-  ansible.builtin.command: "dnf module enable nodejs:20 -y"
-- name: Install nodejs.20 module
+  ansible.builtin.command: dnf module disable nodejs -y
+
+- name: Enable nodejs:20 module
+  ansible.builtin.command: dnf module enable nodejs:20 -y
+
+- name: Install nodejs
   ansible.builtin.dnf:
-   name: nodejs
-   state: present
-- name: create expense system user
+    name: nodejs
+    state: present
+
+- name: Create expense system user
   ansible.builtin.user:
     name: expense
     shell: /sbin/nologin
     system: true
     home: /app
     comment: "expense user"
-- name: create app directory
+
+- name: Create app directory
   ansible.builtin.file:
     path: /app
     state: directory
-- name: download the app code
+    
+
+- name: Download the app code
   ansible.builtin.get_url:
-   url: "https://expense-builds.s3.us-east-1.amazonaws.com/expense-backend-v2.zip"
-   dest: "/tmp/backend-v2.zip" 
-- name: extract the code to app directory
+    url: https://expense-builds.s3.us-east-1.amazonaws.com/expense-backend-v2.zip
+    dest: /tmp/backend-v2.zip
+
+- name: Extract the code to app directory
   ansible.builtin.unarchive:
-    src: "/tmp/backend-v2.zip"
+    src: /tmp/backend-v2.zip
     dest: /app
     remote_src: yes
-- name: install the dependencies
-  community.general.npm:
-   path: /app
-- name: "copy the backend  service to systemd" 
-  ansible.builtin.template:
-    src: "backend.service.j2"
-    dest: "/etc/systemd/system/backend.service"
+    
 
-- name: systemctl daemon reload
+- name: Install Node.js dependencies
+  community.general.npm:
+    path: /app
+
+- name: Copy the backend systemd service
+  ansible.builtin.template:
+    src: backend.service.j2
+    dest: /etc/systemd/system/backend.service
+
+- name: Reload systemd
   ansible.builtin.systemd_service:
     daemon_reload: true
-  
-- name: "enable and restart backend service"
+
+- name: Enable and restart backend service
   ansible.builtin.service:
-    name: "backend"
-    state: restarted 
+    name: backend
+    state: restarted
     enabled: yes
+
+- name: Ensure pip3 is installed
+  ansible.builtin.package:
+    name: python3-pip
+    state: present
+
 - name: Install PyMySQL for Ansible MySQL modules
   ansible.builtin.pip:
     name: PyMySQL
     executable: pip3
 
-- name: install mysql
+- name: Install MySQL client
   ansible.builtin.dnf:
-   name: mysql
-   state: present
-- name: import data
+    name: mysql
+    state: present
+
+- name: Import backend schema into MySQL
   community.mysql.mysql_db:
     name: all
+    state: import
+    target: /app/schema/backend.sql
     login_user: "{{ MYSQL_ROOT_USER }}"
     login_password: "{{ MYSQL_ROOT_PASSWORD }}"
     login_host: "{{ MYSQL_HOST }}"
-    state: import
-    target: 
-    - /app/schema/backend.sql
-- name: system daemon reload
+
+
+- name: Restart backend service again after DB import
   ansible.builtin.service:
-    name: "backend"
+    name: backend
     state: restarted
     enabled: yes
